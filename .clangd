@@ -1,0 +1,10 @@
+CompileFlags:
+  Add: [-Isrc, -Ibuild]
+  CompilationDatabase: build
+
+---
+
+If:
+  PathMatch: .*\.bpf\.c$
+CompileFlags:
+  Add: [-D__BPF__, -D__TARGET_ARCH_x86, -Isrc/bpf, --target=bpf]

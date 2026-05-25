@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Rafael Roquetto
+
+name: 'Blastguard'
+description: 'Package-manager-aware CI runtime forensics for supply-chain attacks'
+
+inputs:
+  mode:
+    description: 'audit (observe + report) or enforce (also block non-allowlisted connects)'
+    required: false
+    default: 'audit'
+  allowed-hosts:
+    description: 'comma-separated hostnames permitted during install'
+    required: false
+    default: 'registry.npmjs.org,registry.yarnpkg.com,github.com,objects.githubusercontent.com,nodejs.org,deb.nodesource.com'
+  watch-pid:
+    description: 'pid to track (defaults to $$ of the calling shell)'
+    required: false
+    default: ''
+  phase:
+    description: 'phase name'
+    required: false
+    default: 'install'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install build dependencies
+      shell: bash
+      run: |
+        sudo apt-get update -y >/dev/null
+        sudo apt-get install -y clang libbpf-dev linux-tools-common linux-tools-generic cmake >/dev/null
+
+    - name: Build blastguard
+      shell: bash
+      working-directory: ${{ github.action_path }}/..
+      run: |
+        if [ ! -x build/blastguardd ]; then
+          cmake -B build
+          cmake --build build -j
+        fi
+
+    - name: Start blastguardd
+      shell: bash
+      working-directory: ${{ github.action_path }}/..
+      run: |
+        ALLOW_ARGS=()
+        IFS=',' read -ra HOSTS <<< "${{ inputs.allowed-hosts }}"
+        for h in "${HOSTS[@]}"; do
+          ALLOW_ARGS+=(-a "$h")
+        done
+
+        sudo build/blastguardd \
+          --mode ${{ inputs.mode }} \
+          "${ALLOW_ARGS[@]}" \
+          >/tmp/blastguardd.log 2>&1 &
+        echo $! | sudo tee /var/run/blastguardd.pid >/dev/null
+        sleep 0.5
+        sudo cp build/blastguardctl /usr/local/bin/blastguardctl
+
+    - name: Start phase
+      shell: bash
+      run: |
+        WATCH_PID="${{ inputs.watch-pid }}"
+        if [ -z "$WATCH_PID" ]; then
+          WATCH_PID=$$
+        fi
+        blastguardctl start-phase "$WATCH_PID" "${{ inputs.phase }}"
