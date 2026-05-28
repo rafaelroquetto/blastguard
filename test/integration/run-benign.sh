@@ -14,6 +14,11 @@ if [ ! -x "$BLASTGUARDD" ] || [ ! -x "$BLASTGUARDCTL" ]; then
 	exit 1
 fi
 
+if ! command -v jq >/dev/null; then
+	echo "jq is required for behavioural assertions" >&2
+	exit 1
+fi
+
 echo "[run-benign] blastguardd needs root; refreshing sudo credentials"
 sudo -v
 
@@ -38,18 +43,20 @@ trap cleanup EXIT
 cd "$PKG_DIR"
 export npm_lifecycle_event=postinstall
 
-echo "[run-benign] marking phase start"
 "$BLASTGUARDCTL" start-phase $$ install
-
-echo "[run-benign] running benign postinstall"
 bash install.sh
-
-echo "[run-benign] marking phase end"
 "$BLASTGUARDCTL" end-phase
 
-echo "[run-benign] rendering report"
-"$BLASTGUARDCTL" report --format=markdown --fail-on=high
-RC=$?
+REPORT_JSON="$("$BLASTGUARDCTL" report --format json)"
 
-echo "[run-benign] exit code: $RC (expect 0)"
-exit $RC
+echo "----- report -----"
+"$BLASTGUARDCTL" report --format markdown
+echo "------------------"
+
+if echo "$REPORT_JSON" | jq -e '.findings | length == 0' >/dev/null; then
+	echo "  [PASS] C4: benign noisy install produces zero findings"
+else
+	COUNT="$(echo "$REPORT_JSON" | jq '.findings | length')"
+	echo "  [FAIL] C4: expected zero findings, got $COUNT"
+	exit 1
+fi

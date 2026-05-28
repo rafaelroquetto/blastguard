@@ -19,7 +19,7 @@ if ! command -v jq >/dev/null; then
 	exit 1
 fi
 
-echo "[run-evil] blastguardd needs root; refreshing sudo credentials"
+echo "[run-enforce] blastguardd needs root; refreshing sudo credentials"
 sudo -v
 
 PKG_DIR="/tmp/proj/node_modules/evil-helper"
@@ -27,9 +27,9 @@ mkdir -p "$PKG_DIR"
 cp "$FIXTURE" "$PKG_DIR/install.sh"
 chmod +x "$PKG_DIR/install.sh"
 
-echo "[run-evil] starting blastguardd (audit mode)"
-sudo "$BLASTGUARDD" --mode audit \
-	--allow registry.npmjs.org --allow github.com --allow objects.githubusercontent.com \
+echo "[run-enforce] starting blastguardd (enforce mode, deliberately narrow allowlist)"
+sudo "$BLASTGUARDD" --mode enforce \
+	--allow registry.npmjs.org \
 	>/tmp/blastguardd.log 2>&1 &
 DAEMON_PID=$!
 sleep 0.3
@@ -41,7 +41,6 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$PKG_DIR"
-
 export NPM_TOKEN=fake-npm-token-for-testing
 export npm_lifecycle_event=postinstall
 
@@ -55,32 +54,9 @@ echo "----- report -----"
 "$BLASTGUARDCTL" report --format markdown
 echo "------------------"
 
-FAILED=0
-
-check() {
-	local desc="$1"
-	local filter="$2"
-
-	if echo "$REPORT_JSON" | jq -e "$filter" >/dev/null; then
-		echo "  [PASS] $desc"
-	else
-		echo "  [FAIL] $desc"
-		FAILED=1
-	fi
-}
-
-check "C1: a finding is attributed to the evil-helper package" \
-	'.findings | map(select(.package == "evil-helper")) | length > 0'
-
-check "C2: NPM_TOKEN is in the rotation list" \
-	'.rotate | index("NPM_TOKEN") != null'
-
-check "C3: at least one HIGH R3 finding fires (token-bearing lifecycle downloader)" \
-	'.findings | map(select(.rule == "R3" and .severity == "high")) | length > 0'
-
-if [ "$FAILED" -ne 0 ]; then
-	echo "[run-evil] one or more assertions failed"
+if echo "$REPORT_JSON" | jq -e '.findings | map(select(.rule == "R2" and .blocked == true)) | length > 0' >/dev/null; then
+	echo "  [PASS] C5: enforce mode produced at least one blocked R2 finding"
+else
+	echo "  [FAIL] C5: expected an R2 finding with blocked=true, none present"
 	exit 1
 fi
-
-echo "[run-evil] all assertions passed"

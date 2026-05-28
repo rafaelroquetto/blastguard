@@ -178,6 +178,7 @@ add_custom_target(license-check
 add_custom_target(tests
     COMMAND ${CMAKE_CURRENT_LIST_DIR}/test/integration/run-benign.sh
     COMMAND ${CMAKE_CURRENT_LIST_DIR}/test/integration/run-evil.sh
+    COMMAND ${CMAKE_CURRENT_LIST_DIR}/test/integration/run-enforce.sh
     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
     DEPENDS blastguardd blastguardctl
     USES_TERMINAL
