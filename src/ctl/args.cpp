@@ -93,41 +93,48 @@ Args parseArgs(int argc, char *argv[])
 		if (arg.empty())
 			break;
 
-		if (arg == "--format")
+		auto optionValue = [&shift](std::string_view a, std::string_view name) -> std::optional<std::string_view>
 		{
-			const std::string_view value = shift();
+			if (a == name)
+				return shift();
 
-			if (value.empty())
+			if (a.starts_with(name) && a.size() > name.size() && a[name.size()] == '=')
+				return a.substr(name.size() + 1);
+
+			return std::nullopt;
+		};
+
+		if (auto value = optionValue(arg, "--format"))
+		{
+			if (value->empty())
 			{
 				std::println(stderr, "--format requires an argument");
 				usage();
 			}
 
-			const auto f = formatFromString(value);
+			const auto f = formatFromString(*value);
 
 			if (!f)
 			{
-				std::println(stderr, "invalid --format value: {}", value);
+				std::println(stderr, "invalid --format value: {}", *value);
 				usage();
 			}
 
 			ret.format = *f;
 		}
-		else if (arg == "--fail-on")
+		else if (auto value = optionValue(arg, "--fail-on"))
 		{
-			const std::string_view value = shift();
-
-			if (value.empty())
+			if (value->empty())
 			{
 				std::println(stderr, "--fail-on requires an argument");
 				usage();
 			}
 
-			const auto s = severityFromString(value);
+			const auto s = severityFromString(*value);
 
 			if (!s)
 			{
-				std::println(stderr, "invalid --fail-on value: {}", value);
+				std::println(stderr, "invalid --fail-on value: {}", *value);
 				usage();
 			}
 
