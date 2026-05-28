@@ -4,6 +4,12 @@
 cmake_minimum_required(VERSION 3.20)
 project(blastguard VERSION 0.1.0 LANGUAGES C CXX)
 
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+endif()
+
+option(BLASTGUARD_STATIC "Statically link C++ runtime and BPF dependencies" OFF)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -32,6 +38,15 @@ set(BPF_SKEL   ${CMAKE_CURRENT_BINARY_DIR}/blastguard.skel.h)
 set(VMLINUX_H  ${CMAKE_CURRENT_BINARY_DIR}/vmlinux.h)
 set(BPF_SRCDIR ${CMAKE_CURRENT_LIST_DIR}/src/bpf)
 
+if(BLASTGUARD_STATIC)
+    add_subdirectory(3rdparty)
+    set(BPF_LIBBPF_INCLUDE -I${LIBBPF_INSTALL_DIR})
+    set(BPF_LIBBPF_DEP libbpf_make)
+else()
+    set(BPF_LIBBPF_INCLUDE)
+    set(BPF_LIBBPF_DEP)
+endif()
+
 add_custom_command(
     OUTPUT ${VMLINUX_H}
     COMMAND bpftool btf dump file /sys/kernel/btf/vmlinux format c > ${VMLINUX_H}
@@ -44,9 +59,10 @@ add_custom_command(
     COMMAND clang -g -O2 -target bpf -D__BPF__ -D__TARGET_ARCH_${BPF_ARCH}
             -I${BPF_SRCDIR}
             -I${CMAKE_CURRENT_BINARY_DIR}
+            ${BPF_LIBBPF_INCLUDE}
             -c -o ${BPF_OBJ} ${BPF_PROG}
     COMMAND bpftool gen skeleton ${BPF_OBJ} > ${BPF_SKEL}
-    DEPENDS ${BPF_PROG} ${BPF_SRCDIR}/events.h ${VMLINUX_H}
+    DEPENDS ${BPF_PROG} ${BPF_SRCDIR}/events.h ${VMLINUX_H} ${BPF_LIBBPF_DEP}
     COMMENT "Building BPF object and skeleton"
 )
 
@@ -84,7 +100,12 @@ target_include_directories(blastguardd PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
 )
 
-target_link_libraries(blastguardd PRIVATE bpf)
+if(BLASTGUARD_STATIC)
+    target_link_options(blastguardd PRIVATE -static)
+    target_link_libraries(blastguardd PRIVATE vendor_libbpf elf)
+else()
+    target_link_libraries(blastguardd PRIVATE bpf)
+endif()
 
 set(CTL_SRC
     ${CMAKE_CURRENT_LIST_DIR}/src/common/io.cpp
@@ -101,6 +122,10 @@ add_executable(blastguardctl ${CTL_SRC})
 target_include_directories(blastguardctl PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
 )
+
+if(BLASTGUARD_STATIC)
+    target_link_options(blastguardctl PRIVATE -static)
+endif()
 
 file(GLOB_RECURSE FORMAT_SRCS
     CONFIGURE_DEPENDS

@@ -107,6 +107,13 @@ to run `bpftool btf dump` by hand.
 
 The build produces `build/blastguardd` and `build/blastguardctl`.
 
+For a fully static binary (used by the release tarballs), pass
+`-DBLASTGUARD_STATIC=ON` and make sure the submodules under `3rdparty/`
+are populated (`git clone --recursive`, or `git submodule update --init
+--recursive` after the fact). The static build vendors libbpf, zlib, and
+zstd and links them in; system libelf is the only static library
+required at link time.
+
 ## Trying it locally
 
 You need root for the daemon (eBPF, plus attaching to the cgroup).
