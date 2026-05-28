@@ -433,6 +433,13 @@ OkResponse Daemon::onEndPhaseRequest(const EndPhaseRequest &)
 
 ReportResponse Daemon::onReportRequest(const ReportRequest &r)
 {
+	if (m_session.isActive())
+	{
+		std::println(stderr, "rejected: cannot generate report during an active phase ({})",
+			m_session.phaseName());
+		throw RejectedRequest{};
+	}
+
 	return ReportResponse{
 		.max_severity = m_session.maxSeverity(),
 		.body = Report::render(m_session, r.format),

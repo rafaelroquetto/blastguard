@@ -93,7 +93,8 @@ Args parseArgs(int argc, char *argv[])
 		if (arg.empty())
 			break;
 
-		auto optionValue = [&shift](std::string_view a, std::string_view name) -> std::optional<std::string_view>
+		auto optionValue = [&shift](std::string_view a,
+							   std::string_view name) -> std::optional<std::string_view>
 		{
 			if (a == name)
 				return shift();
