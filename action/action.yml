@@ -5,6 +5,10 @@ name: 'Blastguard'
 description: 'Package-manager-aware CI runtime forensics for supply-chain attacks'
 
 inputs:
+  version:
+    description: 'Blastguard release tag to install (defaults to the ref the action was pinned to)'
+    required: false
+    default: ''
   mode:
     description: 'audit (observe + report) or enforce (also block non-allowlisted connects)'
     required: false
@@ -25,44 +29,77 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install build dependencies
+    - name: Install blastguard
       shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        ACTION_REPO: ${{ github.action_repository }}
+        ACTION_REF: ${{ github.action_ref }}
       run: |
-        sudo apt-get update -y >/dev/null
-        sudo apt-get install -y clang libbpf-dev linux-tools-common linux-tools-generic cmake >/dev/null
+        set -euo pipefail
 
-    - name: Build blastguard
-      shell: bash
-      working-directory: ${{ github.action_path }}/..
-      run: |
-        if [ ! -x build/blastguardd ]; then
-          cmake -B build
-          cmake --build build -j
+        if [ -z "${VERSION}" ]; then
+          VERSION="${ACTION_REF}"
         fi
+
+        if [ -z "${VERSION}" ] || [ "${VERSION}" = "main" ] || [ "${VERSION}" = "master" ]; then
+          echo "blastguard: pin to a release tag (e.g. uses: ${ACTION_REPO}@v0.1.0)" >&2
+          exit 1
+        fi
+
+        ARCH="$(uname -m)"
+        case "$ARCH" in
+          x86_64|aarch64) ;;
+          *) echo "blastguard: unsupported arch ${ARCH}" >&2; exit 1 ;;
+        esac
+
+        INSTALL_DIR="${RUNNER_TOOL_CACHE}/blastguard/${VERSION}/${ARCH}"
+
+        if [ ! -x "${INSTALL_DIR}/blastguardd" ]; then
+          TARBALL="blastguard-${VERSION}-linux-${ARCH}.tar.gz"
+          BASE_URL="https://github.com/${ACTION_REPO}/releases/download/${VERSION}"
+
+          tmp="$(mktemp -d)"
+          curl -fsSL -o "${tmp}/${TARBALL}" "${BASE_URL}/${TARBALL}"
+          curl -fsSL -o "${tmp}/${TARBALL}.sha256" "${BASE_URL}/${TARBALL}.sha256"
+          (cd "${tmp}" && sha256sum -c "${TARBALL}.sha256")
+
+          mkdir -p "${INSTALL_DIR}"
+          tar -xzf "${tmp}/${TARBALL}" -C "${INSTALL_DIR}" --strip-components=1
+          rm -rf "${tmp}"
+        fi
+
+        echo "${INSTALL_DIR}" >> "${GITHUB_PATH}"
 
     - name: Start blastguardd
       shell: bash
-      working-directory: ${{ github.action_path }}/..
+      env:
+        MODE: ${{ inputs.mode }}
+        ALLOWED_HOSTS: ${{ inputs.allowed-hosts }}
       run: |
+        set -euo pipefail
+
         ALLOW_ARGS=()
-        IFS=',' read -ra HOSTS <<< "${{ inputs.allowed-hosts }}"
+        IFS=',' read -ra HOSTS <<< "${ALLOWED_HOSTS}"
         for h in "${HOSTS[@]}"; do
           ALLOW_ARGS+=(-a "$h")
         done
 
-        sudo build/blastguardd \
-          --mode ${{ inputs.mode }} \
-          "${ALLOW_ARGS[@]}" \
+        sudo blastguardd --mode "${MODE}" "${ALLOW_ARGS[@]}" \
           >/tmp/blastguardd.log 2>&1 &
         echo $! | sudo tee /var/run/blastguardd.pid >/dev/null
         sleep 0.5
-        sudo cp build/blastguardctl /usr/local/bin/blastguardctl
 
     - name: Start phase
       shell: bash
+      env:
+        WATCH_PID: ${{ inputs.watch-pid }}
+        PHASE: ${{ inputs.phase }}
       run: |
-        WATCH_PID="${{ inputs.watch-pid }}"
-        if [ -z "$WATCH_PID" ]; then
+        set -euo pipefail
+
+        if [ -z "${WATCH_PID}" ]; then
           WATCH_PID=$$
         fi
-        blastguardctl start-phase "$WATCH_PID" "${{ inputs.phase }}"
+
+        blastguardctl start-phase "${WATCH_PID}" "${PHASE}"

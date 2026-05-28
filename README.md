@@ -156,8 +156,10 @@ clean, noisy install and is expected to produce no findings.
 
 ## Using it from GitHub Actions
 
+Pin the action to a release tag:
+
 ```yaml
-- uses: ./action
+- uses: rroquetto/blastguard@v0.1.0
   with:
     mode: enforce
     allowed-hosts: registry.npmjs.org,github.com
@@ -167,8 +169,12 @@ clean, noisy install and is expected to produce no findings.
     blastguardctl report --format markdown --fail-on high >> $GITHUB_STEP_SUMMARY
 ```
 
-See `action/action.yml` and the example workflow in
-`.github/workflows/sanity.yml`.
+The action downloads a prebuilt, statically linked binary tarball matching
+the tag from this repo's GitHub Releases (one per architecture), verifies
+its sha256, and puts `blastguardd` / `blastguardctl` on `PATH`. No
+toolchain install on the runner; no build step.
+
+See `action/action.yml`.
 
 ## Daemon flags
 
