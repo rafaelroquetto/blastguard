@@ -47,6 +47,8 @@ else()
     set(BPF_LIBBPF_DEP)
 endif()
 
+find_program(BPF_CLANG NAMES clang-22 REQUIRED)
+
 add_custom_command(
     OUTPUT ${VMLINUX_H}
     COMMAND bpftool btf dump file /sys/kernel/btf/vmlinux format c > ${VMLINUX_H}
@@ -56,7 +58,7 @@ add_custom_command(
 
 add_custom_command(
     OUTPUT ${BPF_OBJ} ${BPF_SKEL}
-    COMMAND clang -g -O2 -target bpf -D__BPF__ -D__TARGET_ARCH_${BPF_ARCH}
+    COMMAND ${BPF_CLANG} -g -O2 -target bpf -D__BPF__ -D__TARGET_ARCH_${BPF_ARCH}
             -I${BPF_SRCDIR}
             -I${CMAKE_CURRENT_BINARY_DIR}
             ${BPF_LIBBPF_INCLUDE}
@@ -135,7 +137,7 @@ file(GLOB_RECURSE FORMAT_SRCS
 )
 list(FILTER FORMAT_SRCS EXCLUDE REGEX "vmlinux\\.h$")
 
-find_program(CLANG_FORMAT_EXE clang-format)
+find_program(CLANG_FORMAT_EXE NAMES clang-format-22 clang-format)
 
 if(CLANG_FORMAT_EXE)
     add_custom_target(format
