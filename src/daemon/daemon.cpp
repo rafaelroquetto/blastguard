@@ -92,7 +92,7 @@ static std::string readCwd(std::uint32_t pid)
 	return std::string(buf, static_cast<std::size_t>(n));
 }
 
-Daemon::Daemon(const Args &args) : m_args(args) {}
+Daemon::Daemon(const Args &args) : m_args(args), m_shouldExit(false) {}
 
 bool Daemon::init()
 {
@@ -191,7 +191,7 @@ void Daemon::setupHandlers()
 
 int Daemon::exec()
 {
-	while (true)
+	while (!m_shouldExit)
 	{
 		epoll_event events[2]; /* ebpf and ipc */
 		const int n = ::epoll_wait(m_epollFd.handle(), events, std::size(events), -1);
@@ -447,6 +447,7 @@ std::expected<ReportResponse, Error> Daemon::onReportRequest(const ReportRequest
 std::expected<OkResponse, Error> Daemon::onShutdownRequest(const ShutdownRequest &)
 {
 	std::println(stderr, "shutdown requested");
+	m_shouldExit = true;
 
-	std::exit(0);
+	return OkResponse{};
 }

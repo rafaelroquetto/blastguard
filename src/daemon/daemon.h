@@ -52,4 +52,5 @@ private:
 	Session m_session;
 	rules::Allowlist m_allowlist;
 	UniqueFD m_epollFd;
+	bool m_shouldExit;
 };
