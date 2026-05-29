@@ -14,7 +14,7 @@
 enum
 {
 	argv_max = 2048,
-	env_max = 4096,
+	env_max = 16384,
 	path_max = 192,
 };
 
