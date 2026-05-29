@@ -141,18 +141,25 @@ $BG/build/blastguardctl shutdown
 The `node_modules/<pkg>/` cwd is what gives Blastguard a package to attribute findings
 to; `npm_lifecycle_event` is what real `npm` sets to name the lifecycle phase.
 
-## Demo fixtures
-
-Two shell scripts you can run end-to-end:
+## Integration tests
 
 ```
-bash test/integration/run-evil.sh
-bash test/integration/run-benign.sh
+cmake --build build --target tests
 ```
 
-`run-evil.sh` simulates a malicious package's postinstall and is expected
-to produce findings (and exit non-zero). `run-benign.sh` simulates a
-clean, noisy install and is expected to produce no findings.
+This runs three scripts under `test/integration/` against the built
+binaries. Each one drives a fresh `blastguardd`, replays a fixture
+install, and asserts on the JSON report:
+
+- `run-benign.sh` — a noisy-but-clean install produces zero findings.
+- `run-evil.sh` — a malicious postinstall produces a HIGH `R3` finding
+  attributed to the right package, with `NPM_TOKEN` in the rotation
+  list.
+- `run-enforce.sh` — same evil postinstall under `--mode enforce`
+  produces a blocked `R2` finding.
+
+The scripts need root for the daemon; the cmake target uses an interactive
+terminal so `sudo` can prompt. `jq` is required for the JSON assertions.
 
 ## Using it from GitHub Actions
 
