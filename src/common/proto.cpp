@@ -124,9 +124,31 @@ std::string encode(const OkResponse &)
 	return std::string(reply_ok);
 }
 
-std::string encode(const ErrorResponse &)
+std::string encode(const Error &r)
 {
-	return std::string(reply_error);
+	if (r.reason.empty())
+		return std::string(reply_error);
+
+	return std::format("{} {}", reply_error, r.reason);
+}
+
+std::optional<Error> decodeError(std::string_view raw)
+{
+	const std::size_t nl = raw.find('\n');
+	const std::string_view first = nl == std::string_view::npos ? raw : raw.substr(0, nl);
+
+	if (first != reply_error && !first.starts_with(std::string(reply_error) + " "))
+		return std::nullopt;
+
+	std::string_view reason = first.substr(reply_error.size());
+
+	while (!reason.empty() && reason.front() == ' ')
+		reason.remove_prefix(1);
+
+	if (reason.empty())
+		return Error{"request rejected"};
+
+	return Error{std::string(reason)};
 }
 
 std::string encode(const ReportResponse &r)

@@ -8,19 +8,10 @@
 #include "common/proto.h"
 #include "common/uniquefd.h"
 
-#include <exception>
+#include <expected>
 #include <functional>
 #include <tuple>
 #include <utility>
-
-class RejectedRequest : public std::exception
-{
-public:
-	const char *what() const noexcept override
-	{
-		return "request rejected";
-	}
-};
 
 class IPCServer
 {
@@ -41,7 +32,8 @@ private:
 	void handleClient(int client_fd);
 
 	template <typename Req>
-	using HandlerFor = std::move_only_function<typename Req::Response(const Req &)>;
+	using HandlerFor =
+		std::move_only_function<std::expected<typename Req::Response, Error>(const Req &)>;
 
 	UniqueFD m_listenFd;
 

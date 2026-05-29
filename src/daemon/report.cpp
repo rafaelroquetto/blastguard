@@ -81,8 +81,8 @@ static std::string renderMarkdown(const Session &session)
 
 	if (!suppressed.empty())
 	{
-		out += std::format(
-			"## ⚠ {} package(s) installed without observed lifecycle scripts\n\n", suppressed.size());
+		out += std::format("## ⚠ {} package(s) installed without observed lifecycle scripts\n\n",
+			suppressed.size());
 
 		for (const auto &p : suppressed)
 			out += std::format("- `{}`\n", p);

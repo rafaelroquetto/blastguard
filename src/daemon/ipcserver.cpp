@@ -96,7 +96,7 @@ void IPCServer::handleClient(int client_fd)
 
 	if (!req)
 	{
-		writeWire(client_fd, encode(ErrorResponse{}));
+		writeWire(client_fd, encode(Error{"malformed request"}));
 		return;
 	}
 
@@ -107,18 +107,15 @@ void IPCServer::handleClient(int client_fd)
 
 		if (!handler)
 		{
-			writeWire(client_fd, encode(ErrorResponse{}));
+			writeWire(client_fd, encode(Error{"no handler registered"}));
 			return;
 		}
 
-		try
-		{
-			const auto resp = handler(r);
-			writeWire(client_fd, encode(resp));
-		}
-		catch (const RejectedRequest &)
-		{
-			writeWire(client_fd, encode(ErrorResponse{}));
-		}
+		const auto resp = handler(r);
+
+		if (resp)
+			writeWire(client_fd, encode(*resp));
+		else
+			writeWire(client_fd, encode(resp.error()));
 	}, *req);
 }

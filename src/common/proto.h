@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cstdint>
+#include <expected>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -42,8 +43,9 @@ struct OkResponse
 {
 };
 
-struct ErrorResponse
+struct Error
 {
+	std::string reason;
 };
 
 struct ReportResponse
@@ -94,7 +96,7 @@ std::string encode(const ShutdownRequest &);
 
 std::string encode(const PongResponse &);
 std::string encode(const OkResponse &);
-std::string encode(const ErrorResponse &);
+std::string encode(const Error &);
 std::string encode(const ReportResponse &);
 
 std::optional<Request> decodeRequest(std::string_view line);
@@ -109,7 +111,22 @@ template <> std::optional<ReportResponse> decodeResponse<ReportResponse>(std::st
 
 std::string sendRaw(std::string_view wire);
 
-template <RequestType Req> std::optional<typename Req::Response> sendCommand(const Req &req)
+std::optional<Error> decodeError(std::string_view raw);
+
+template <RequestType Req> std::expected<typename Req::Response, Error> sendCommand(const Req &req)
 {
-	return decodeResponse<typename Req::Response>(sendRaw(encode(req)));
+	const std::string raw = sendRaw(encode(req));
+
+	if (raw.empty())
+		return std::unexpected(Error{"no response from daemon"});
+
+	if (auto err = decodeError(raw))
+		return std::unexpected(std::move(*err));
+
+	auto resp = decodeResponse<typename Req::Response>(raw);
+
+	if (!resp)
+		return std::unexpected(Error{"malformed response from daemon"});
+
+	return *resp;
 }

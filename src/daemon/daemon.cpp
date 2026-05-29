@@ -387,7 +387,7 @@ void Daemon::onExecEvent(const event_exec &e)
 	}
 }
 
-PongResponse Daemon::onPingRequest(const PingRequest &)
+std::expected<PongResponse, Error> Daemon::onPingRequest(const PingRequest &)
 {
 	return PongResponse{};
 }
@@ -401,27 +401,19 @@ static bool pidExists(std::uint32_t pid)
 	return ::stat(path, &st) == 0;
 }
 
-OkResponse Daemon::onStartPhaseRequest(const StartPhaseRequest &r)
+std::expected<OkResponse, Error> Daemon::onStartPhaseRequest(const StartPhaseRequest &r)
 {
 	if (m_session.isActive())
-	{
-		std::println(stderr, "rejected: a phase is already active ({})", m_session.phaseName());
-		throw RejectedRequest{};
-	}
+		return std::unexpected(
+			Error{std::format("phase {} is already active", m_session.phaseName())});
 
 	if (!pidExists(r.pid))
-	{
-		std::println(stderr, "rejected: pid {} does not exist", r.pid);
-		throw RejectedRequest{};
-	}
+		return std::unexpected(Error{std::format("pid {} does not exist", r.pid)});
 
 	m_session.reset();
 
 	if (!m_mgr.trackPid(r.pid))
-	{
-		std::println(stderr, "rejected: failed to track pid {}", r.pid);
-		throw RejectedRequest{};
-	}
+		return std::unexpected(Error{std::format("failed to track pid {}", r.pid)});
 
 	m_session.startPhase(r.phase, r.pid);
 
@@ -430,7 +422,7 @@ OkResponse Daemon::onStartPhaseRequest(const StartPhaseRequest &r)
 	return OkResponse{};
 }
 
-OkResponse Daemon::onEndPhaseRequest(const EndPhaseRequest &)
+std::expected<OkResponse, Error> Daemon::onEndPhaseRequest(const EndPhaseRequest &)
 {
 	m_session.endPhase();
 	m_mgr.clearTrackedPids();
@@ -440,14 +432,11 @@ OkResponse Daemon::onEndPhaseRequest(const EndPhaseRequest &)
 	return OkResponse{};
 }
 
-ReportResponse Daemon::onReportRequest(const ReportRequest &r)
+std::expected<ReportResponse, Error> Daemon::onReportRequest(const ReportRequest &r)
 {
 	if (m_session.isActive())
-	{
-		std::println(stderr, "rejected: cannot generate report during an active phase ({})",
-			m_session.phaseName());
-		throw RejectedRequest{};
-	}
+		return std::unexpected(Error{std::format(
+			"cannot generate report during an active phase ({})", m_session.phaseName())});
 
 	return ReportResponse{
 		.max_severity = m_session.maxSeverity(),
@@ -455,7 +444,7 @@ ReportResponse Daemon::onReportRequest(const ReportRequest &r)
 	};
 }
 
-OkResponse Daemon::onShutdownRequest(const ShutdownRequest &)
+std::expected<OkResponse, Error> Daemon::onShutdownRequest(const ShutdownRequest &)
 {
 	std::println(stderr, "shutdown requested");
 

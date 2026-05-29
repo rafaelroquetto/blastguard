@@ -16,7 +16,7 @@ static int doPing()
 
 	if (!resp)
 	{
-		std::println(stderr, "no response");
+		std::println(stderr, "ping: {}", resp.error().reason);
 		return 1;
 	}
 
@@ -38,7 +38,7 @@ static int doStartPhase(const Args &args)
 
 	if (!resp)
 	{
-		std::println(stderr, "start-phase failed");
+		std::println(stderr, "start-phase: {}", resp.error().reason);
 		return 1;
 	}
 
@@ -53,7 +53,7 @@ static int doEndPhase()
 
 	if (!resp)
 	{
-		std::println(stderr, "end-phase failed");
+		std::println(stderr, "end-phase: {}", resp.error().reason);
 		return 1;
 	}
 
@@ -68,7 +68,7 @@ static int doReport(const Args &args)
 
 	if (!resp)
 	{
-		std::println(stderr, "report failed");
+		std::println(stderr, "report: {}", resp.error().reason);
 		return 1;
 	}
 
@@ -83,7 +83,7 @@ static int doShutdown()
 
 	if (!resp)
 	{
-		std::println(stderr, "shutdown failed");
+		std::println(stderr, "shutdown: {}", resp.error().reason);
 		return 1;
 	}
 

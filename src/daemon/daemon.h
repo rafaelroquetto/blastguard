@@ -14,6 +14,7 @@
 #include "rules.h"
 #include "session.h"
 
+#include <expected>
 #include <span>
 
 class Daemon
@@ -38,11 +39,11 @@ private:
 	void onOpenEvent(const event_open &e);
 	void onExecEvent(const event_exec &e);
 
-	PongResponse onPingRequest(const PingRequest &);
-	OkResponse onStartPhaseRequest(const StartPhaseRequest &r);
-	OkResponse onEndPhaseRequest(const EndPhaseRequest &);
-	ReportResponse onReportRequest(const ReportRequest &r);
-	OkResponse onShutdownRequest(const ShutdownRequest &);
+	std::expected<PongResponse, Error> onPingRequest(const PingRequest &);
+	std::expected<OkResponse, Error> onStartPhaseRequest(const StartPhaseRequest &r);
+	std::expected<OkResponse, Error> onEndPhaseRequest(const EndPhaseRequest &);
+	std::expected<ReportResponse, Error> onReportRequest(const ReportRequest &r);
+	std::expected<OkResponse, Error> onShutdownRequest(const ShutdownRequest &);
 
 	Args m_args;
 	EBPFManager m_mgr;
