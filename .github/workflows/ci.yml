@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Rafael Roquetto
+
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [dynamic, static]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Show kernel + BTF info
+        run: |
+          uname -a
+          ls -la /sys/kernel/btf/vmlinux || true
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang clang-format cmake jq \
+            libbpf-dev libelf-dev \
+            linux-tools-common linux-tools-generic
+
+      - name: Configure (dynamic)
+        if: matrix.build_type == 'dynamic'
+        run: cmake -B build
+
+      - name: Configure (static)
+        if: matrix.build_type == 'static'
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBLASTGUARD_STATIC=ON
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Check formatting
+        if: matrix.build_type == 'dynamic'
+        run: cmake --build build --target format-check
+
+      - name: Check license headers
+        if: matrix.build_type == 'dynamic'
+        run: cmake --build build --target license-check
+
+      - name: Integration tests
+        run: cmake --build build --target tests

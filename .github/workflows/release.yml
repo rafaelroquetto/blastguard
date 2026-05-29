@@ -4,9 +4,8 @@
 name: release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -50,36 +49,19 @@ jobs:
 
       - name: Package
         run: |
-          VERSION="${GITHUB_REF_NAME}"
+          VERSION="${{ github.event.release.tag_name }}"
           STAGE="blastguard-${VERSION}-linux-${{ matrix.arch }}"
           mkdir -p "dist/${STAGE}"
           cp build/blastguardd build/blastguardctl LICENSE README.md "dist/${STAGE}/"
           tar -C dist -czf "${STAGE}.tar.gz" "${STAGE}"
           sha256sum "${STAGE}.tar.gz" > "${STAGE}.tar.gz.sha256"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: blastguard-${{ matrix.arch }}
-          path: |
-            blastguard-*.tar.gz
-            blastguard-*.tar.gz.sha256
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-
-      - name: Create release
+      - name: Upload to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
+          gh release upload "${{ github.event.release.tag_name }}" \
             --repo "${GITHUB_REPOSITORY}" \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes \
-            dist/blastguard-*.tar.gz \
-            dist/blastguard-*.tar.gz.sha256
+            --clobber \
+            blastguard-*.tar.gz \
+            blastguard-*.tar.gz.sha256
