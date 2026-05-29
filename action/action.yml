@@ -99,7 +99,7 @@ runs:
         set -euo pipefail
 
         if [ -z "${WATCH_PID}" ]; then
-          WATCH_PID=$$
+          WATCH_PID=$PPID
         fi
 
         blastguardctl start-phase "${WATCH_PID}" "${PHASE}"
