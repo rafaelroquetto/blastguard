@@ -79,16 +79,27 @@ runs:
       run: |
         set -euo pipefail
 
+        BLASTGUARDD="$(command -v blastguardd)"
+        if [ -z "${BLASTGUARDD}" ]; then
+          echo "blastguard: blastguardd not on PATH" >&2
+          exit 1
+        fi
+
         ALLOW_ARGS=()
         IFS=',' read -ra HOSTS <<< "${ALLOWED_HOSTS}"
         for h in "${HOSTS[@]}"; do
           ALLOW_ARGS+=(-a "$h")
         done
 
-        sudo blastguardd --mode "${MODE}" "${ALLOW_ARGS[@]}" \
+        sudo "${BLASTGUARDD}" --mode "${MODE}" "${ALLOW_ARGS[@]}" \
           >/tmp/blastguardd.log 2>&1 &
-        echo $! | sudo tee /var/run/blastguardd.pid >/dev/null
         sleep 0.5
+
+        if ! blastguardctl ping >/dev/null 2>&1; then
+          echo "blastguard: daemon did not come up; log:" >&2
+          sudo cat /tmp/blastguardd.log >&2 || true
+          exit 1
+        fi
 
     - name: Start phase
       shell: bash
