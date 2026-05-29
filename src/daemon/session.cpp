@@ -5,6 +5,7 @@
 
 #include "session.h"
 
+#include <algorithm>
 #include <utility>
 
 void Session::startPhase(std::string name, std::uint32_t watched_pid)
@@ -29,6 +30,7 @@ void Session::reset()
 	m_packageNameById.clear();
 	m_pidPackage.clear();
 	m_pidTokens.clear();
+	m_extractedPackages.clear();
 }
 
 bool Session::isActive() const
@@ -51,7 +53,7 @@ void Session::addFinding(Finding f)
 	m_findings.push_back(std::move(f));
 }
 
-const std::vector<Finding> &Session::findings() const
+std::vector<Finding> Session::findings() const
 {
 	return m_findings;
 }
@@ -75,6 +77,22 @@ std::string_view Session::packageName(std::uint32_t id) const
 		return {};
 
 	return m_packageNameById[id - 1];
+}
+
+void Session::markExtracted(std::string name)
+{
+	if (std::ranges::find(m_extractedPackages, name) == m_extractedPackages.end())
+		m_extractedPackages.push_back(std::move(name));
+}
+
+std::vector<std::string> Session::extractedPackages() const
+{
+	return m_extractedPackages;
+}
+
+bool Session::packageHadExec(std::string_view name) const
+{
+	return m_packageIdByName.contains(name);
 }
 
 void Session::setPidPackage(std::uint32_t pid, std::uint32_t package_id)

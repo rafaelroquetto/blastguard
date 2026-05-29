@@ -47,12 +47,25 @@ static std::set<std::string> rotationTokens(const Session &session)
 	return out;
 }
 
+static std::vector<std::string> suppressedPackages(const Session &session)
+{
+	std::vector<std::string> out;
+
+	for (const auto &pkg : session.extractedPackages())
+	{
+		if (!session.packageHadExec(pkg))
+			out.push_back(pkg);
+	}
+
+	return out;
+}
+
 static std::string renderMarkdown(const Session &session)
 {
 	std::string out;
 	out += std::format("# Blastguard report — phase `{}`\n\n", session.phaseName());
 
-	auto tokens = rotationTokens(session);
+	const auto tokens = rotationTokens(session);
 
 	if (!tokens.empty())
 	{
@@ -62,6 +75,22 @@ static std::string renderMarkdown(const Session &session)
 			out += std::format("- `{}`\n", t);
 
 		out += "\n";
+	}
+
+	const auto suppressed = suppressedPackages(session);
+
+	if (!suppressed.empty())
+	{
+		out += std::format(
+			"## ⚠ {} package(s) installed without observed lifecycle scripts\n\n", suppressed.size());
+
+		for (const auto &p : suppressed)
+			out += std::format("- `{}`\n", p);
+
+		out += "\nNo install / postinstall script ran for these packages during this phase. "
+			   "This is normal for packages that declare none, but if you expected scripts "
+			   "to run (e.g. `node-gyp-build`, `node-pre-gyp install`), check whether "
+			   "`ignore-scripts=true` is set in your npm config.\n\n";
 	}
 
 	const auto &findings = session.findings();
@@ -130,7 +159,7 @@ static std::string renderJson(const Session &session)
 	std::string out = "{\n";
 	out += std::format("  \"phase\": {},\n", escapeJson(session.phaseName()));
 
-	auto tokens = rotationTokens(session);
+	const auto tokens = rotationTokens(session);
 	out += "  \"rotate\": [";
 
 	bool first = true;
@@ -142,6 +171,21 @@ static std::string renderJson(const Session &session)
 
 		first = false;
 		out += escapeJson(t);
+	}
+
+	out += "],\n";
+
+	const auto suppressed = suppressedPackages(session);
+	out += "  \"installed_without_scripts\": [";
+	first = true;
+
+	for (const auto &p : suppressed)
+	{
+		if (!first)
+			out += ", ";
+
+		first = false;
+		out += escapeJson(p);
 	}
 
 	out += "],\n";

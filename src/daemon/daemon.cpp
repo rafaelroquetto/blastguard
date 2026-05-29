@@ -321,6 +321,15 @@ void Daemon::onOpenEvent(const event_open &e)
 
 	rules::onOpen(&e, path, pkg_id, pkg_name, m_session);
 
+	const int access_mode = e.flags & 0x3;
+	const bool writable = (access_mode != 0) || (e.flags & 0100) || (e.flags & 02000);
+
+	if (writable && m_session.isActive())
+	{
+		if (auto pkg = m_attributor.packageFromPath(path))
+			m_session.markExtracted(*pkg);
+	}
+
 	if (m_args.verbose)
 	{
 		std::println("OPEN pid={} path={} flags=0x{:x} package={}", e.hdr.pid, path, e.flags,

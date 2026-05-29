@@ -10,13 +10,18 @@
 #include <string_view>
 #include <vector>
 
-std::optional<std::string> Attributor::packageFromCwd(const std::string &cwd) const
+std::optional<std::string> Attributor::packageFromCwd(std::string_view cwd) const
 {
-	if (cwd.empty())
+	return packageFromPath(cwd);
+}
+
+std::optional<std::string> Attributor::packageFromPath(std::string_view path) const
+{
+	if (path.empty())
 		return std::nullopt;
 
 	std::vector<std::string> parts;
-	const std::filesystem::path p(cwd);
+	const std::filesystem::path p(path);
 
 	for (const auto &c : p)
 		parts.push_back(c.string());
@@ -55,6 +60,9 @@ std::optional<std::string> Attributor::packageFromCwd(const std::string &cwd) co
 
 	if (next.starts_with("@") && next_idx + 1 < static_cast<int>(parts.size()))
 		return next + "/" + parts[next_idx + 1];
+
+	if (next.starts_with(".") || next.starts_with("_"))
+		return std::nullopt;
 
 	return next;
 }

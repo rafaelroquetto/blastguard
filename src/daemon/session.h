@@ -39,10 +39,14 @@ public:
 	std::uint32_t watchedPid() const;
 
 	void addFinding(Finding f);
-	const std::vector<Finding> &findings() const;
+	std::vector<Finding> findings() const;
 
 	std::uint32_t internPackage(const std::string &name);
 	std::string_view packageName(std::uint32_t id) const;
+
+	void markExtracted(std::string name);
+	std::vector<std::string> extractedPackages() const;
+	bool packageHadExec(std::string_view name) const;
 
 	void setPidPackage(std::uint32_t pid, std::uint32_t package_id);
 	std::uint32_t pidPackage(std::uint32_t pid) const;
@@ -59,9 +63,21 @@ private:
 
 	std::vector<Finding> m_findings;
 
-	std::unordered_map<std::string, std::uint32_t> m_packageIdByName;
+	struct StringHash
+	{
+		using is_transparent = void;
+
+		std::size_t operator()(std::string_view v) const noexcept
+		{
+			return std::hash<std::string_view>{}(v);
+		}
+	};
+
+	std::unordered_map<std::string, std::uint32_t, StringHash, std::equal_to<>> m_packageIdByName;
 	std::vector<std::string> m_packageNameById;
 
 	std::unordered_map<std::uint32_t, std::uint32_t> m_pidPackage;
 	std::unordered_map<std::uint32_t, std::uint32_t> m_pidTokens;
+
+	std::vector<std::string> m_extractedPackages;
 };
